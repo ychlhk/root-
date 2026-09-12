@@ -123,7 +123,7 @@ public class MainActivity extends Activity {
         titleBox.addView(subtitle);
 
         TextView author = new TextView(this);
-        author.setText("陈延辉大丑逼 制作");
+        author.setText("陈延辉 制作");
         author.setTextSize(10);
         author.setTextColor(0xFF7D8FA4);
         titleBox.addView(author);
@@ -409,7 +409,6 @@ public class MainActivity extends Activity {
         exitBtn.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 if (rootDialog != null && rootDialog.isShowing()) rootDialog.dismiss();
-                // 真正退出 App
                 finishAffinity();
                 System.exit(0);
             }
@@ -649,6 +648,7 @@ public class MainActivity extends Activity {
         scriptList.addView(card);
     }
 
+    // ========== 关键修改：script → busybox script → 直接执行 三级兜底 ==========
     private void runScript(final Script s) {
         killCurrentProcess();
         if (!termExpanded) toggleTerminal();
@@ -658,8 +658,13 @@ public class MainActivity extends Activity {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
+                    // 优先用 script 包一层（PTY），没有 script 用 busybox script，再没有就直接执行
                     String cmd = "chmod 755 '" + s.path + "' && " +
-                            "script -q -c \"'" + s.path + "'\" /dev/null";
+                            "(command -v script >/dev/null 2>&1 && " +
+                            "script -q -c \"'" + s.path + "'\" /dev/null) || " +
+                            "(command -v busybox >/dev/null 2>&1 && " +
+                            "busybox script -q -c \"'" + s.path + "'\" /dev/null) || " +
+                            "'" + s.path + "'";
 
                     ProcessBuilder pb = new ProcessBuilder("su", "-c", cmd);
                     pb.redirectErrorStream(true);
@@ -834,4 +839,4 @@ public class MainActivity extends Activity {
             default: return 0xFF94A3B8;
         }
     }
-            }
+                }
