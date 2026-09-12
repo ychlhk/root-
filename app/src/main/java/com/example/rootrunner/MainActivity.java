@@ -4,8 +4,6 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -14,7 +12,6 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
-import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.method.ScrollingMovementMethod;
 import android.text.style.ForegroundColorSpan;
@@ -27,7 +24,6 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -56,25 +52,6 @@ public class MainActivity extends Activity {
     private static final int TERM_EXPANDED_HEIGHT = 340;
     private static final int TERM_HEAD_HEIGHT = 32;
     private static final int TERM_COLLAPSED_HEIGHT = 90;
-
-    // 常见 root 管理器的包名
-    private static final String[] ROOT_MANAGER_PKGS = {
-            // KernelSU 官方
-            "me.weishu.kernelsu",
-            "me.weishu.kernelsu.debug",
-            // KernelSU Next（新版分支）
-            "com.rifsxd.ksunext",
-            "com.rifsxd.ksunext.lite",
-            // Magisk 官方
-            "com.topjohnwu.magisk",
-            "com.topjohnwu.magisk.debug",
-            "io.github.huskydg.magisk",
-            // 其他 root 管理
-            "com.kingroot.kinguser",
-            "eu.chainfire.supersu",
-            "com.koushikdutta.superuser",
-            "com.noshufou.android.su"
-    };
 
     private LinearLayout scriptList;
     private TextView output;
@@ -318,7 +295,7 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    // ========== "需要 root 权限" 弹窗 ==========
+    // ========== "需要 root 权限" 简单弹窗 ==========
     private void showRootDialog() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -343,40 +320,27 @@ public class MainActivity extends Activity {
         box.addView(title, tLp);
 
         TextView desc = new TextView(this);
-        desc.setText("本软件需要 root 权限才能执行脚本。\n\n点击下方「打开 Root 管理器」，\n在本应用条目里选择「允许」，\n以后就不会再弹了。");
+        desc.setText("本软件需要 root 权限才能执行脚本。\n\n请打开你的 Root 管理器\n（KernelSU / Magisk）\n在超级用户列表里允许本应用，\n然后回到这里点「重试」。");
         desc.setTextSize(13);
         desc.setTextColor(0xFF546A82);
         desc.setGravity(Gravity.CENTER);
         desc.setLineSpacing(dp(2), 1);
         LinearLayout.LayoutParams dLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        dLp.topMargin = dp(12);
+        dLp.topMargin = dp(14);
         box.addView(desc, dLp);
 
-        Button openRootBtn = new Button(this);
-        openRootBtn.setText("打开 Root 管理器");
-        openRootBtn.setTextSize(14);
-        openRootBtn.setTextColor(Color.WHITE);
-        openRootBtn.setBackground(roundRect(0xFF0284C7, 14));
-        openRootBtn.setMinWidth(0);
-        openRootBtn.setMinimumWidth(0);
-        openRootBtn.setAllCaps(false);
-        LinearLayout.LayoutParams oLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
-        oLp.topMargin = dp(22);
-        box.addView(openRootBtn, oLp);
-
         Button retryBtn = new Button(this);
-        retryBtn.setText("我已授权，重新检测");
-        retryBtn.setTextSize(13);
-        retryBtn.setTextColor(0xFF0F1A2B);
-        retryBtn.setBackground(roundRect(0xFFE2E8F0, 14));
+        retryBtn.setText("重试");
+        retryBtn.setTextSize(14);
+        retryBtn.setTextColor(Color.WHITE);
+        retryBtn.setBackground(roundRect(0xFF0284C7, 14));
         retryBtn.setMinWidth(0);
         retryBtn.setMinimumWidth(0);
         retryBtn.setAllCaps(false);
         LinearLayout.LayoutParams rLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(44));
-        rLp.topMargin = dp(8);
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        rLp.topMargin = dp(24);
         box.addView(retryBtn, rLp);
 
         Button exitBtn = new Button(this);
@@ -388,7 +352,7 @@ public class MainActivity extends Activity {
         exitBtn.setMinimumWidth(0);
         exitBtn.setAllCaps(false);
         LinearLayout.LayoutParams eLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(40));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(42));
         eLp.topMargin = dp(8);
         box.addView(exitBtn, eLp);
 
@@ -408,12 +372,6 @@ public class MainActivity extends Activity {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT);
         }
-
-        openRootBtn.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                openRootManager();
-            }
-        });
 
         retryBtn.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -437,8 +395,8 @@ public class MainActivity extends Activity {
                                     if (rootDialog != null && rootDialog.isShowing())
                                         rootDialog.dismiss();
                                 } else {
-                                    appendOutput("⚠ 还是没授权，请到 Root 管理器里手动允许本应用", 1);
-                                    retryBtn.setText("我已授权，重新检测");
+                                    appendOutput("⚠ 仍未授权，请到 KernelSU / Magisk 里允许本应用", 1);
+                                    retryBtn.setText("重试");
                                     retryBtn.setEnabled(true);
                                 }
                             }
@@ -455,75 +413,6 @@ public class MainActivity extends Activity {
         });
 
         rootDialog.show();
-    }
-
-    // ========== 打开 Root 管理器（多路兜底） ==========
-    private void openRootManager() {
-        PackageManager pm = getPackageManager();
-        Intent found = null;
-        String foundPkg = null;
-
-        // 第 1 路：按已知包名查
-        for (String pkg : ROOT_MANAGER_PKGS) {
-            try {
-                Intent i = pm.getLaunchIntentForPackage(pkg);
-                if (i != null) {
-                    found = i;
-                    foundPkg = pkg;
-                    break;
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 第 2 路：遍历已安装应用，按包名/应用名关键字搜
-        if (found == null) {
-            try {
-                List<ApplicationInfo> apps = pm.getInstalledApplications(0);
-                for (ApplicationInfo info : apps) {
-                    String name = info.packageName.toLowerCase();
-                    String label = String.valueOf(pm.getApplicationLabel(info)).toLowerCase();
-                    if (name.contains("kernelsu") || name.contains("magisk")
-                            || name.contains("ksunext") || name.contains("superuser")
-                            || label.contains("kernelsu") || label.contains("magisk")
-                            || label.contains("超级用户") || label.contains("内核管理")
-                            || label.contains("root 管理")) {
-                        Intent i = pm.getLaunchIntentForPackage(info.packageName);
-                        if (i != null) {
-                            found = i;
-                            foundPkg = info.packageName;
-                            break;
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 第 3 路：兜底，打开系统"应用管理"
-        if (found == null) {
-            try {
-                Intent i = new Intent(Settings.ACTION_APPLICATION_SETTINGS);
-                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(i);
-                Toast.makeText(this,
-                        "未找到 Root 管理器，请手动在 KernelSU / Magisk 里允许本应用",
-                        Toast.LENGTH_LONG).show();
-                return;
-            } catch (Exception ignored) {}
-        }
-
-        // 找到了，打开
-        try {
-            found.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(found);
-            Toast.makeText(this,
-                    "已打开 " + (foundPkg == null ? "Root 管理器" : foundPkg) +
-                            "，请找到「Root 脚本启动器」并选「允许」",
-                    Toast.LENGTH_LONG).show();
-        } catch (Exception e) {
-            Toast.makeText(this,
-                    "打开失败，请手动去 KernelSU / Magisk 里允许本应用",
-                    Toast.LENGTH_LONG).show();
-        }
     }
 
     private void toggleTerminal() {
