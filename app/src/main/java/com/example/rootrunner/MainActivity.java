@@ -123,7 +123,7 @@ public class MainActivity extends Activity {
         titleBox.addView(subtitle);
 
         TextView author = new TextView(this);
-        author.setText("陈延辉 制作");
+        author.setText("陈延辉大丑逼 制作");
         author.setTextSize(10);
         author.setTextColor(0xFF7D8FA4);
         titleBox.addView(author);
@@ -409,6 +409,9 @@ public class MainActivity extends Activity {
         exitBtn.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 if (rootDialog != null && rootDialog.isShowing()) rootDialog.dismiss();
+                // 真正退出 App
+                finishAffinity();
+                System.exit(0);
             }
         });
 
