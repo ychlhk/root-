@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Color;
@@ -13,6 +14,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.method.ScrollingMovementMethod;
 import android.text.style.ForegroundColorSpan;
@@ -57,12 +59,21 @@ public class MainActivity extends Activity {
 
     // 常见 root 管理器的包名
     private static final String[] ROOT_MANAGER_PKGS = {
-            "me.weishu.kernelsu",     // KernelSU
-            "com.topjohnwu.magisk",   // Magisk
+            // KernelSU 官方
+            "me.weishu.kernelsu",
+            "me.weishu.kernelsu.debug",
+            // KernelSU Next（新版分支）
+            "com.rifsxd.ksunext",
+            "com.rifsxd.ksunext.lite",
+            // Magisk 官方
+            "com.topjohnwu.magisk",
             "com.topjohnwu.magisk.debug",
             "io.github.huskydg.magisk",
+            // 其他 root 管理
             "com.kingroot.kinguser",
-            "eu.chainfire.supersu"
+            "eu.chainfire.supersu",
+            "com.koushikdutta.superuser",
+            "com.noshufou.android.su"
     };
 
     private LinearLayout scriptList;
@@ -342,7 +353,6 @@ public class MainActivity extends Activity {
         dLp.topMargin = dp(12);
         box.addView(desc, dLp);
 
-        // 打开 Root 管理器
         Button openRootBtn = new Button(this);
         openRootBtn.setText("打开 Root 管理器");
         openRootBtn.setTextSize(14);
@@ -356,7 +366,6 @@ public class MainActivity extends Activity {
         oLp.topMargin = dp(22);
         box.addView(openRootBtn, oLp);
 
-        // 重新检测
         Button retryBtn = new Button(this);
         retryBtn.setText("我已授权，重新检测");
         retryBtn.setTextSize(13);
@@ -370,7 +379,6 @@ public class MainActivity extends Activity {
         rLp.topMargin = dp(8);
         box.addView(retryBtn, rLp);
 
-        // 退出
         Button exitBtn = new Button(this);
         exitBtn.setText("退出");
         exitBtn.setTextSize(13);
@@ -449,21 +457,73 @@ public class MainActivity extends Activity {
         rootDialog.show();
     }
 
-    // 打开 Root 管理器 App
+    // ========== 打开 Root 管理器（多路兜底） ==========
     private void openRootManager() {
         PackageManager pm = getPackageManager();
+        Intent found = null;
+        String foundPkg = null;
+
+        // 第 1 路：按已知包名查
         for (String pkg : ROOT_MANAGER_PKGS) {
             try {
                 Intent i = pm.getLaunchIntentForPackage(pkg);
                 if (i != null) {
-                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(i);
-                    Toast.makeText(this, "请在列表里找到本应用，选「允许」", Toast.LENGTH_LONG).show();
-                    return;
+                    found = i;
+                    foundPkg = pkg;
+                    break;
                 }
             } catch (Exception ignored) {}
         }
-        Toast.makeText(this, "没有找到 Root 管理器，请手动打开 KernelSU / Magisk", Toast.LENGTH_LONG).show();
+
+        // 第 2 路：遍历已安装应用，按包名/应用名关键字搜
+        if (found == null) {
+            try {
+                List<ApplicationInfo> apps = pm.getInstalledApplications(0);
+                for (ApplicationInfo info : apps) {
+                    String name = info.packageName.toLowerCase();
+                    String label = String.valueOf(pm.getApplicationLabel(info)).toLowerCase();
+                    if (name.contains("kernelsu") || name.contains("magisk")
+                            || name.contains("ksunext") || name.contains("superuser")
+                            || label.contains("kernelsu") || label.contains("magisk")
+                            || label.contains("超级用户") || label.contains("内核管理")
+                            || label.contains("root 管理")) {
+                        Intent i = pm.getLaunchIntentForPackage(info.packageName);
+                        if (i != null) {
+                            found = i;
+                            foundPkg = info.packageName;
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 第 3 路：兜底，打开系统"应用管理"
+        if (found == null) {
+            try {
+                Intent i = new Intent(Settings.ACTION_APPLICATION_SETTINGS);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+                Toast.makeText(this,
+                        "未找到 Root 管理器，请手动在 KernelSU / Magisk 里允许本应用",
+                        Toast.LENGTH_LONG).show();
+                return;
+            } catch (Exception ignored) {}
+        }
+
+        // 找到了，打开
+        try {
+            found.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(found);
+            Toast.makeText(this,
+                    "已打开 " + (foundPkg == null ? "Root 管理器" : foundPkg) +
+                            "，请找到「Root 脚本启动器」并选「允许」",
+                    Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this,
+                    "打开失败，请手动去 KernelSU / Magisk 里允许本应用",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void toggleTerminal() {
@@ -882,4 +942,4 @@ public class MainActivity extends Activity {
             default: return 0xFF94A3B8;
         }
     }
-                           }
+            }
